@@ -1,0 +1,8 @@
+Revision history for Perl extension Data::Denter.
+
+0.10  Fri Apr 27 00:20:34 PDT 2001
+	- First version ready for CPAN.
+
+0.01  Tue Apr 10 10:54:39 2001
+	- original version; created by h2xs 1.19
+

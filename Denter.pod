@@ -1,0 +1,217 @@
+=head1 NAME
+
+Data::Denter - An alternative to Data::Dumper and Storable.
+
+=head1 SYNOPSIS
+
+    use Data::Denter;
+    use Data::Dumper;
+    
+    my $hh = bless {Easter => "Bunny", 
+	            Christmas => ["Santa", "Grinch"],
+	           }, "Holiday::Hackers";
+    
+    print "*** Data::Denter #1 ***\n";
+    print Denter $hh;
+    print "*** Data::Dumper #1 ***\n";
+    print Dumper $hh;
+    
+    my $dented = Indent([ qw(one two three), {one=>1}, [2], \3 ], 
+                        {"I\nLove\n" => undef});
+    process($dented);
+    
+    sub process {
+	my $dented = shift;
+        my @data = Undent $dented;
+        print "\n*** Data::Denter #2 ***\n";
+	print $dented;
+        print "*** Data::Dumper #2 ***\n";
+        print Dumper @data;
+    }
+
+=head1 SYNOPSIS OUTPUT
+
+    *** Data::Denter #1 ***
+    %Holiday::Hackers
+        Easter => Bunny
+        Christmas => @
+            Santa
+            Grinch
+    *** Data::Dumper #1 ***
+    $VAR1 = bless( {
+                     'Easter' => 'Bunny',
+                     'Christmas' => [
+                                      'Santa',
+                                      'Grinch'
+                                    ]
+                   }, 'Holiday::Hackers' );
+    
+    *** Data::Denter #2 ***
+    @
+        one
+        two
+        three
+        %
+            one => 1
+        @
+            2
+        $
+            3
+    %
+        <<EOK => ?
+    I
+    Love
+    EOK
+    *** Data::Dumper #2 ***
+    $VAR1 = [
+              'one',
+              'two',
+              'three',
+              {
+                'one' => '1'
+              },
+              [
+                '2'
+              ],
+              \'3'
+            ];
+    $VAR2 = {
+              'I
+    Love
+    ' => undef
+            };
+
+=head1 DESCRIPTION
+
+The main problem with Data::Dumper (one of my all-time favorite modules) is that you have to use C<eval()> to deserialize the data you've dumped. This is great if you can trust the data you're evaling, but horrible if you can't. A good alternative is Storable.pm. It can safely thaw your frozen data. But if you want to read/edit the frozen data, your out of luck, because Storable uses a binary format. Even Data::Dumper's output can be a little cumbersome for larger data objects. 
+
+Enter Data::Denter.
+
+Data::Denter is yet another Perl data serializer/deserializer. It formats nested data structures in an indented fashion. It is optimized for human readability/editability, safe deserialization, and (eventually) speed. 
+
+NOTE: It may be optimized for Python programmers too, but please don't hold that against me ;)
+
+It exports 2 functions: C<Indent()> and C<Undent()> for serialization and deserialization respectively. It also exports C<Denter()> which is an alias to C<Indent()>. (People who use Data::Dumper will appreciate this). You can even import C<Dumper()> (another C<Indent> alias) for easily toggling between Data::Dumper and Data::Denter style formatting.
+
+Data::Denter handles all of the commonly serializable Perl data types, including: scalars, hash refs, array refs, scalar refs, ref refs, undef, and blessed references. Other references will simply be formatted in their string forms. It can even properly handle circular and duplicate references.
+
+Data::Denter has 3 different forms of quoting string values depending on their complexity: no quotes, double quotes, and here-doc quoting. It also has a special symbol for undefined values.
+
+=head1 UNDERSTANDING THE DENTER FORMAT
+
+Data::Denter uses it's own markup syntax, which is designed to be minimal, yet complete. It borrows familiar symbols from Perl, and structured indenting from Python. The following symbols are used:
+
+    %         - a hash reference
+    @         - an array reference
+    $         - a scalar reference
+    \         - a reference of another reference
+    ?         - undef
+    "         - used to quote string values that begin with other 
+                markup characters, but do not contain newlines
+    <<EOV     - quote values with embedded newlines using
+                a here-doc syntax
+    <<EOV-    - same as above, but chomp final newline
+    <<EOK     - quote hash keys with embedded newlines
+    =>        - used to separate key value pairs
+    (REF#)    - Indicates the first instance of a duplicate reference
+    (*REF#-#) - Indicates the dereference of a duplicate reference
+
+Any of the data type references ( %, @, $ ) may be followed by a classname if they were blessed. For instance:
+
+    print Indent( $h = bless { Name => 'Ingy', Rank => 'JAPH' }, "Hacker" );
+
+would produce:
+
+    %Hacker
+        Name => Ingy
+        Rank => JAPH
+
+If the data contains duplicate references, only the first one is dumped. The rest use a reference marker. Continuing on with the above code:
+
+     $h->{me} = $h;
+     $h->{myself} = \\$h;
+     $h->{I} = [ $h->{me}, $h->{myself} ];
+     print Indent $h;
+
+would produce:
+
+    %Hacker(REF00001)
+        myself => \\%Hacker(*REF00001-1)
+        I => @
+            %Hacker(*REF00001-2)
+            \\%Hacker(*REF00001-3)
+        me => %Hacker(*REF00001-4)
+        Rank => JAPH
+        Name => Ingy
+
+This is how Data::Denter can serialize and deserialize data with circular references.
+
+=head1 FUNCTIONS
+
+=head2 Indent
+
+    $string = Indent(list of scalars or typeglob/scalar pairs);
+
+This function will serialize a list of scalars. A typeglob like '*myhash' may be specified before any scalar to give the scalar a name.
+
+=head2 Undent
+
+    @list = Undent(serialized-data-string);
+
+This function will deserialize an Indented data string into a list of Perl scalars that are equivalent to the original pre-Indented objects.
+
+=head1 OPTIONS
+
+=head2 Comma
+
+$Data::Dumper::Comma is a string used to separate hash keys and values. Default is ' => '.
+
+=head2 Width
+
+$Data::Dumper::Width is the indentation width. Default is 4.
+
+=head2 TabWidth
+
+$Data::Dumper::TabWidth is the number of spaces represented by leading tabs that may have been introduced by editing a serialized file. Default is 8.
+
+=head2 Level
+
+Experimental. Starting indent level. Default is 0.
+
+=head1 OO-Style
+
+    print Data::Denter->new(width => 2)->indent($foo, $bar);
+
+=head1 KNOWN BUGS & LIMITATIONS
+
+=over 4
+
+=item 1
+
+Data::Denter handles a lot of strange data. One thing it does not yet handle are refs blessed with strings containing characters that are not allowed in package names. People who do this are strange.
+
+=item 2
+
+Written in pure (unoptimized) Perl, so probably not so fast yet. But since the Indented format can be parsed in one pass, with no lookaheads, a C implementation would be extremely fast.
+
+=back
+
+=head1 AUTHOR
+
+Brian Ingerson <INGY@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2001, Brian Ingerson. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+See http://www.perl.com/perl/misc/Artistic.html
+
+=head1 SEE ALSO
+
+L<Data::Dumper>
+
+L<Storable>
+
+=cut
