@@ -8,6 +8,7 @@ my $test = 0;
 system "clear" if $ENV{DEBUG};
 
 #1
+my $name = *name; # just to turn off "used once" warning.
 my $foo1 = bless {count => \[qw(one two three four), \\undef]}, "Bugle::Boy";
 Test_This(*name => $foo1);
 

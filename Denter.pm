@@ -8,7 +8,7 @@ require Exporter;
 @EXPORT = qw(Indent Undent Denter);
 @EXPORT_OK = qw(Dumper);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.10';
+$VERSION = '0.11';
 use Carp;
 
 sub Indent {
@@ -238,13 +238,13 @@ sub _print_ref {
 sub _resolve {
     my ($o, $stream_ref) = @_;
     my $ref_label = 'REF00000';
+    local $^W;
     for my $ref (@{$o->{refs}}) {
 	if ($o->{xref}{$ref} == 1) {
 	    $$stream_ref =~ s/(?:(\\)\($ref\)([\\\%\@\$])|\($ref\)\s*$)/$1$2/m;
 	}
 	else {
 	    $ref_label++;
-	    local $^W;
 	    $$stream_ref =~ 
 	      s/(?:(\\)\($ref\)([\\\%\@\$])|\($ref\)\s*$)/$1($ref_label)$2/m;
 	    my $i = 0;
@@ -285,11 +285,11 @@ sub undent {
 }
 
 sub _undent_data {
-    use Data::Dumper;
     my $o = shift;
     my ($obj, $class) = ('god', '');
     my @refs;
     my %refs;
+    local $^W;
     while ($o->{content} =~ s/^\\(?:\((\w+)\))?((\%|\@|\$|\\\(\*|\\).*)/$2/) {
 	push @refs, $1;
 	$refs{$1} = scalar @refs;

@@ -1,5 +1,8 @@
 Revision history for Perl extension Data::Denter.
 
+0.11  Fri Apr 27 07:43:14 PDT 2001
+	- Forgot to test under -w. Oops. Fixed.
+
 0.10  Fri Apr 27 00:20:34 PDT 2001
 	- First version ready for CPAN.
 
