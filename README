@@ -29,7 +29,10 @@ yields:
 
 CHANGES: 
 
-(version 0.12)
+(Version 0.13)
+- Fixed scalar context bug in Undent.
+
+(Version 0.12)
 - URI style escaping for binary data.
 - Hash keys are sorted by default for the Indent() function. Controlled by the "Sort" option.
 - Added "HashMode" option for creating quick and easy config files.

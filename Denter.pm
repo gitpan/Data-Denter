@@ -8,7 +8,7 @@ require Exporter;
 @EXPORT = qw(Indent Undent Denter);
 @EXPORT_OK = qw(Dumper);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.12';
+$VERSION = '0.13';
 use Carp;
 
 sub Indent {
@@ -327,7 +327,7 @@ sub undent {
 	}
 	push @{$o->{objects}}, $o->_undent_data;
     }
-    return @{$o->{objects}};
+    return wantarray ? @{$o->{objects}} : ${$o->{objects}}[-1];
 }
 
 sub _undent_data {

@@ -3,7 +3,7 @@ use diagnostics;
 use Test;
 use Data::Denter;
 use Data::Dumper;
-BEGIN { plan test => 9 }
+BEGIN { plan test => 10 }
 
 sub DEBUG() { $ENV{DENTER_DEBUG} }
 
@@ -50,7 +50,7 @@ ok((Undent(Indent($h)))[0] eq $h);
 #9
 my @i = (foo => 'one', bar => 'two');
 {
-    $Data::Denter::HashMode = 1;
+    local $Data::Denter::HashMode = 1;
     my $j = Indent(@i);
     my @k = Undent($j);
     ok(@k == 4 and 
@@ -58,6 +58,10 @@ my @i = (foo => 'one', bar => 'two');
        join('', @i) eq join('', @k)
       );
 }
+
+#10
+my $k = "A Simple String to Test Undent in Scalar Context";
+ok(Undent(Indent($k)) eq $k);
 
 sub Test_This {
     print "=" x 30 . " Test #" . ++$test . " " . "=" x 30 . "\n" 
