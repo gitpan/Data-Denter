@@ -1,5 +1,12 @@
 Revision history for Perl extension Data::Denter.
 
+---
+version: 0.14
+date:    Fri Oct 18 00:04:09 PDT 2002
+changes: 
+  - Applied patches from Tatsuhiko Miyagawa, Leon Brocard, Slaven Rezic,
+    and Michael Schwern
+
 0.13  Tue May 15 00:52:54 PDT 2001
 	- Undent was returning the wrong thing in scalar context.
 	  Needed to use wantarray.

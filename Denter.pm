@@ -4,11 +4,11 @@ use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 use vars qw($Width $Comma $Level $TabWidth $Sort $MaxLines $HashMode);
 require Exporter;
-@ISA = qw(Exporter AutoLoader);
+@ISA = qw(Exporter);
 @EXPORT = qw(Indent Undent Denter);
 @EXPORT_OK = qw(Dumper);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.13';
+$VERSION = '0.15';
 use Carp;
 
 sub Indent {
@@ -204,7 +204,8 @@ sub _indent_hash {
 	    $o->{key} .= "\n$marker\n";
 	    $key_out = "<<$marker$chomp";
 	}
-	elsif ($data =~ /^[\s\%\@\$\\?\"]|\s$/) {
+	elsif ($key =~ /^[\s\%\@\$\\?\"]|\s$/
+               or $key eq '') {
 	    $key_out = qq{"$key"};
 	}
 	$stream .= ' ' x $indent . $key_out . $o->{comma};
@@ -319,7 +320,7 @@ sub undent {
     $o->_setup_line;
     while (not $o->{done}) {
 	if ($o->{level} == 0 and
-	    $o->{content} =~ /^(\w+)\s*$comma\s*(.*)$/) {
+            $o->{content} =~ /^(.+?)\s*$comma\s*(.*)$/) {
 	    $o->{content} = $2;
 	    no strict 'refs';
 	    push @{$o->{objects}}, 
@@ -445,6 +446,7 @@ sub _undent_hash {
 
 sub _get_key {
     my ($o, $key) = @_;
+    $key =~ s/^"(.*)"$/$1/;
     return $key unless $key =~ /^\<\<(\w+)(\-?)/;
     my ($marker, $chomp) = ($1, $2);
     $key = '';
@@ -508,7 +510,7 @@ sub _setup_line {
     while (1) {
 	$_ = $o->{lines}[0];
 	# expand tabs in leading whitespace;
-	$o->next_line, next if /^(\s*$|\#)/; # skip comments and blank lines
+	$o->_next_line, next if /^(\s*$|\#)/; # skip comments and blank lines
 	while (s{^( *)(\t+)}
 	       {' ' x (length($1) + length($2) * $tabwidth - 
 		       length($1) % $tabwidth)}e){}
