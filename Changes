@@ -1,5 +1,20 @@
 Revision history for Perl extension Data::Denter.
 
+0.12  Sun May  6 17:49:06 PDT 2001
+	- Fixed a bug that was caused by an old Perl bug being fixed in 5.7.0.
+	  Data::Denter should now work with 5.7.0+. (And everything else 
+	  5.005_03 and above)
+
+0.12  Sun May  6 15:11:32 PDT 2001
+	- Escape binary data using URI style encoding (%xx),
+
+0.12  Sun May  6 15:11:32 PDT 2001
+	- Added MaxLines option and HashMode option.
+
+0.12  Sun May  6 15:11:32 PDT 2001
+	- Sort hash keys by default for Indent(). Controlled by 
+	  $Data::Denter::Indent,
+
 0.11  Fri Apr 27 07:43:14 PDT 2001
 	- Forgot to test under -w. Oops. Fixed.
 

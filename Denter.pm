@@ -2,19 +2,23 @@ package Data::Denter;
 
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-use vars qw($Width $Comma $Level $TabWidth);
+use vars qw($Width $Comma $Level $TabWidth $Sort $MaxLines $HashMode);
 require Exporter;
 @ISA = qw(Exporter AutoLoader);
 @EXPORT = qw(Indent Undent Denter);
 @EXPORT_OK = qw(Dumper);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.11';
+$VERSION = '0.12';
 use Carp;
 
 sub Indent {
+    $Sort = 1 unless defined $Sort;
     Data::Denter->new(width => $Width || 4,
 		      level => $Level || 0,
 		      comma => $Comma || " => ",
+		      sort => $Sort,
+		      maxlines => $MaxLines || 0,
+		      hashmode => $HashMode || 0,
 		     )->indent(@_);
 };
 *Denter = \&Indent;
@@ -24,6 +28,7 @@ sub Undent {
     Data::Denter->new(width => $Width || 4,
 		      tabwidth => $TabWidth || 8,
 		      comma => $Comma || " => ",
+		      hashmode => $HashMode || 0,
 		     )->undent(@_);
 };
 
@@ -35,6 +40,15 @@ sub invalid_usage {
 # Indent error messages
 sub invalid_name_level { 
     "Can't indent a typeglob name at indentation level $_[0]\n";
+}
+
+sub invalid_hashmode_key {
+    my $key = shift;
+    <<END;
+You are using Data::Denter and you have specified a "key" that is invalid:
+    "$key"
+The keys must be string values containing only word characters.
+END
 }
 
 # Undent error messages
@@ -73,14 +87,23 @@ sub invalid_scalar_value {
     "Invalid value for scalar ref context at $o->{line}\n";
 }
 
+sub no_such_ref {
+    my $ref = shift;
+    "Cannot dereference '$ref'. Not previously defined\n";
+}
+
 sub new {
     my $class = shift;
     my %args = @_;
+    $args{sort} = 1 unless defined $args{sort};
     bless {__DATA__DENTER__ => 1,
 	   width => $args{width} || 4,
 	   comma => $args{comma} || " => ",
 	   level => $args{level} || 0,
 	   tabwidth => $args{tabwidth} || 8,
+	   sort => $args{sort},
+	   maxlines => $args{maxlines} || 0,
+	   hashmode => $args{hashmode} || 0,
 	  }, $class;
 }
 
@@ -93,11 +116,16 @@ sub indent {
     $o->{key} = '';
     while (@_) {
 	$_ = shift;
+	if ($o->{hashmode}) {
+	    croak invalid_hashmode_key($_)
+	      if (ref or not /^\w+$/);
+	    $stream .= $o->_indent_name("*${package}::$_", shift);
+	    next;
+	}
 	$stream .= $o->_indent_name($_, shift), next
 	  if (/^\*$package\::\w+$/);
 	$stream .= $o->_indent_data($_);
     }
-#    print $stream; exit;
     $o->_resolve(\$stream);
     return $stream;
 }
@@ -113,10 +141,10 @@ sub _indent_data {
       if (ref eq 'HASH' and not /=/ or /=HASH/);
     return $o->_indent_array($_)
       if (ref eq 'ARRAY' and not /=/ or /=ARRAY/);
+    return $o->_indent_ref($_, $1)
+      if (ref eq 'REF' and /^(SCALAR|REF)\(/);
     return $o->_indent_scalar($_)
       if (ref eq 'SCALAR' and not /=/ or /=SCALAR/);
-    return $o->_indent_ref($_)
-      if (ref eq 'REF');
     return "$_\n";
 }
 
@@ -129,12 +157,25 @@ sub _indent_value {
 	my $chomp = ($data =~ s/\n\Z//) ? '' : '-';
 	$stream = "<<$marker$chomp\n";
 	$stream .= $o->{key}, $o->{key} = '' if $o->{key};
+	my @data = split /\n/, $data, -1;
+	$data = '';
+	if ($o->{maxlines} and @data > $o->{maxlines}) {
+	    my $notshown = @data - $o->{maxlines};
+	    $#data = $o->{maxlines} - 1;
+	    push @data, "*** $notshown lines not displayed ***";
+	}
+	for (@data) {
+	    s/([\x00-\x08\x0b-\x1f%\x7f-\xff])/'%'.sprintf('%02x',ord($1))/eg;
+	    $data .= "$_\n";
+	}
+	chomp $data;
 	$stream .= "$data\n$marker\n";
     }
     elsif ($data =~ /^[\s\%\@\$\\?\"]|\s$/ or
 	   $data =~ /\Q$o->{comma}\E/ or
-	   $data =~ /[\x00-\x1f]/ or
+	   $data =~ /([\x00-\x1f\x7f-\xff])/ or
 	   $data eq '') {
+	$data =~ s/([\x00-\x1f%\x7f-\xff])/'%'.sprintf('%02x',ord($1))/eg;
 	$stream = qq{"$data"\n};
 	$stream .= $o->{key}, $o->{key} = '' if $o->{key};
     }
@@ -150,7 +191,10 @@ sub _indent_hash {
     my $stream = $o->_print_ref($data, '%', 'HASH');
     return $$stream if ref $stream;
     my $indent = ++$o->{level} * $o->{width};
-    for my $key (keys %$data) {
+    for my $key ($o->{sort} ? 
+		 (sort keys %$data) :
+		 (keys %$data)
+		) {
 	my $key_out = $key;
 	if ($key =~ /\n/ or
 	    $key =~ /\Q$o->{comma}\E/) {
@@ -194,8 +238,8 @@ sub _indent_scalar {
 }
 
 sub _indent_ref {
-    my ($o, $data) = @_;
-    my $stream = $o->_print_ref($data, '\\', 'SCALAR');
+    my ($o, $data, $type) = @_;
+    my $stream = $o->_print_ref($data, '\\', $type);
     return $$stream if ref $stream;
     chomp $stream;
     return $stream . $o->_indent_data($$data);
@@ -220,7 +264,7 @@ sub _indent_name {
 sub _print_ref {
     my ($o, $data, $symbol, $type) = @_;
     $data =~ /^(([\w:]+)=)?$type\(0x([0-9a-f]+)\)$/ 
-      or croak "Invalid reference: $data\n";
+      or croak "Invalid reference: $data, for type $type\n";
     my $stream = $symbol;
     $stream .= $2 if defined $2;
     $o->{xref}{$3}++;
@@ -245,6 +289,7 @@ sub _resolve {
 	}
 	else {
 	    $ref_label++;
+	    local $^W;
 	    $$stream_ref =~ 
 	      s/(?:(\\)\($ref\)([\\\%\@\$])|\($ref\)\s*$)/$1($ref_label)$2/m;
 	    my $i = 0;
@@ -277,7 +322,8 @@ sub undent {
 	    $o->{content} =~ /^(\w+)\s*$comma\s*(.*)$/) {
 	    $o->{content} = $2;
 	    no strict 'refs';
-	    push @{$o->{objects}}, *{"${package}::$1"};
+	    push @{$o->{objects}}, 
+	    $o->{hashmode} ? $1 : *{"${package}::$1"};
 	}
 	push @{$o->{objects}}, $o->_undent_data;
     }
@@ -304,7 +350,7 @@ sub _undent_data {
 	$obj = ($1 eq '%') ? {} : ($1 eq '@') ? [] : \$foo;
 	$class = $2 || '';
 	if ($3) {
-	    croak unless defined $o->{xref}{$4};
+	    croak no_such_ref($4) unless defined $o->{xref}{$4};
 	    $obj = $o->{xref}{$4};
 	    $o->_next_line;
 	    $o->_setup_line;
@@ -332,7 +378,7 @@ sub _undent_data {
 	    $obj = \ $copy;
 	    $o->{xref}{$ref} = $obj if $ref;
 	}
-	croak "screwed" unless defined $o->{xref}{$1};
+	croak no_such_ref($1) unless defined $o->{xref}{$1};
 	eval("\$" x $refs . '$obj = $o->{xref}{$1}');
 	$o->_next_line;
 	$o->_setup_line;
@@ -365,12 +411,14 @@ sub _undent_value {
 	    $o->_next_line;
 	}
 	croak no_value_end_marker($marker, $line) if $o->{done};
+	$value =~ s/(%([0-9a-fA-F]{2}))/pack("H2","$2")/eg;
 	chomp $value if $chomp;
     }
     elsif ($o->{content} =~ /^\"/) {
 	croak $o->mismatched_quotes unless $o->{content} =~ /^\".*\"\s*$/;
-	($value = $o->{content}) =~ s/^\"|\"\s*$//g;
-    }
+	($value = $o->{content}) =~ s/^\"|\"\s*$//g; 
+	$value =~ s/(%([0-9a-fA-F]{2}))/pack("H2","$2")/eg;
+   }
     else {
 	$value = $o->{content};
     }

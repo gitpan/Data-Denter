@@ -2,7 +2,7 @@ Data::Denter - An alternative to Data::Dumper and Storable.
 
 INTRODUCTION:
 
-Data::Denter is yet another Perl data serializer/deserializer. It formats nested data structures in an indented fashion. It is optimized for human readability/editability, safe deserialization, and (eventually) speed. 
+Data::Denter is yet another Perl data serializer/deserializer. It formats nested data structures in an indented fashion. It is optimized for human readability/editability, safe deserialization, and (eventually) speed.
 
 NOTE: It may be optimized for Python programmers too, but please don't hold that against me ;)
 
@@ -19,13 +19,22 @@ SAMPLE:
 yields:
 
     %Small::Example
-        baz => Bozo the Clown
         bar => @
             happy
             ?
             @
             sad
+        baz => Bozo the Clown
         foo => 42
+
+CHANGES: 
+
+(version 0.12)
+- URI style escaping for binary data.
+- Hash keys are sorted by default for the Indent() function. Controlled by the "Sort" option.
+- Added "HashMode" option for creating quick and easy config files.
+- Added "MaxLines" option for limiting the output of very long string values.
+- Fixed bug. Now works with 5.7.0+.
 
 INFORMATION:
 
